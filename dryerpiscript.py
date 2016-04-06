@@ -8,10 +8,39 @@ import os
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(4,GPIO.IN)
+global NotifyCount
+global lastemail
+global lastprint
+NotificationSeconds = 600
+NotifyCount = 0
 lastemail = datetime.datetime.now()
 lastprint = datetime.datetime.now()
-emaildone = False
 r = req.post("http://192.168.1.200:8080/api/startpi")
+
+def CheckPrint(Message):
+   global NotifyCount
+   global lastprint
+   global lastemail
+   current = datetime.datetime.now()
+   diffvalue = current - lastprint
+   if (diffvalue.seconds > 1):
+        lastprint = datetime.datetime.now() 
+        print("%s-GPIO=%s, Lastemail=%s, Current=%s, Notified=%s  " % (Message,GPIO.input(4), lastemail,current,NotifyCount))
+   return
+
+# Dryer Done
+def DryerDone():
+   global NotifyCount
+   global lastemail
+   payload = {'gpioresult': 0}
+   r = req.post("http://192.168.1.200:8080/api/dryerpi", params=payload)
+   if (r.status_code == req.codes.ok):
+       NotifyCount += 1
+       lastemail = datetime.datetime.now()
+       #current = datetime.datetime.now()
+       #print(r.json())
+       #print("Dryer Done GPIO=%s,Lastemail=%s, Current=%s, Notified=%s " % (GPIO.input(4), lastemail,current,NotifyCount))
+   return
 
 while True:
     current = datetime.datetime.now()
@@ -22,24 +51,14 @@ while True:
         exit()
     else: 
         if (GPIO.input(4)):
-            diffvalue = current - lastprint
-            emaildone = False
-            if (diffvalue.seconds > 5):
-                lastprint = datetime.datetime.now() 
-                print(GPIO.input(4),lastemail,current)
+            NotifyCount = 0
+            #CheckPrint("Waiting-") 
         else:
-            diffvalue = current - lastemail  
-            if (diffvalue.seconds > 300 and emaildone == False):     
-                payload = {'gpioresult': 0}
-                r = req.post("http://192.168.1.200:8080/api/dryerpi", params=payload)
-                if (r.status_code == req.codes.ok):
-                    lastemail = datetime.datetime.now()
-                    emaildone = True
-                    print(r.json())
+            if (NotifyCount == 0):
+                DryerDone()
             else:
-                diffvalue = current - lastprint
-                if (diffvalue.seconds > 5):
-                    lastprint = datetime.datetime.now()
-                    print("not 5 minutes yet: ", GPIO.input(4),lastemail,current)
-          
-   
+                diffvalue = current - lastemail  
+                if (diffvalue.seconds > NotificationSeconds and NotifyCount < 3):  
+                     DryerDone()
+                #else:
+                #     CheckPrint("Not Time Yet-") 
