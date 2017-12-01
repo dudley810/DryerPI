@@ -1,48 +1,31 @@
 import RPi.GPIO as GPIO
-import requests as req
 from time import sleep
 import datetime
-from sys import exit
-import os
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(4,GPIO.IN)
+GPIO.setup(25,GPIO.OUT)
 global lastemail
-NotificationSeconds = 600
-lastemail = datetime.datetime.now()-datetime.timedelta(seconds=700)
-r = req.post("http://192.168.1.200:8080/api/startpi")
+NotificationSeconds = 2400
+lastemail = datetime.datetime.now()-datetime.timedelta(seconds=2400)
 
 def CheckPrint(Message):
    global lastemail
-   #print("%s-GPIO=%s, Lastemail=%s, Current=%s  " % (Message,GPIO.input(4), lastemail,datetime.datetime.now()))
-   return
-
-# Dryer Done
-def DryerDone():
-   global lastemail
-   payload = {'gpioresult': 0}
-   r = req.post("http://192.168.1.200:8080/api/dryerpi", params=payload)
-   if (r.status_code == req.codes.ok):
-       lastemail = datetime.datetime.now()
-       #print("Dryer Done GPIO=%s,Lastemail=%s, Current=%s " % (GPIO.input(4), lastemail,datetime.datetime.now()))
+  #print("%s-GPIO=%s, Current=%s, Lastemail=%s  " % (Message,GPIO.input(4), datetime.datetime.now(),lastemail)) 
    return
 
 while True:
-    sleep(1)
+    sleep(10)
     current = datetime.datetime.now()
-    if (current.hour > 22):
-        r = req.post("http://192.168.1.200:8080/api/stoppi")
-       #print("Past 11pm now shuting down PI")
-        os.system('shutdown now -h')
-        exit()
-    else: 
+    diffvalue = current - lastemail
+    if (diffvalue.seconds > NotificationSeconds):
         if (GPIO.input(4)):
-            continue
-           #CheckPrint("Waiting-") 
+           GPIO.output(25,False)
+          #CheckPrint("Waiting-") 
         else:
-            diffvalue = current - lastemail  
-            if (diffvalue.seconds > NotificationSeconds):  
-                DryerDone()
-           #else:
-           #    CheckPrint("Not Time Yet-") 
+           GPIO.output(25,True)
+           lastemail = datetime.datetime.now()
+          #CheckPrint("DryerDone-")
+   #else:
+      #CheckPrint("Not TimeYet") 
