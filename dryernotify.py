@@ -11,6 +11,7 @@ NotificationSeconds = 300
 NotifyCount = 0
 
 def DryerDone():
+    global NotifyCount
     response = req.post('http://10.18.18.235/sendmsg?message=dryer is done')
     if (response.status_code == 200):
         NotifyCount += 1
